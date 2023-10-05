@@ -8,9 +8,10 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
 from pprint import pprint
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
-# import os
-# os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 # Make reproducible as much as possible
 np.random.seed(1234)
 tf.random.set_seed(1234)
@@ -47,10 +48,11 @@ def create_arg_parser():
                         help="Separate dev set to read in (default dev.txt)")
     parser.add_argument("-t", "--test_file", type=str,
                         help="If added, use trained model to predict on test set")
-    parser.add_argument('--model', default='bert-base-uncased', choices=models_list + ['all'],
+    parser.add_argument('--model', default='distilbert-base-uncased', choices=models_list + ['all'],
                         help="Which pre-trained model to use")
     parser.add_argument('--epochs', type=int, default=1, help='Epochs to fine-tune model for')
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size: best in powers of 2')
+    parser.add_argument('--fig_path', type=str, help='Save location for confusion matrix')
 
     args = parser.parse_args()
     return args
@@ -63,27 +65,27 @@ def train_model(lm, tokens_train, Y_train_bin, tokens_dev, Y_dev_bin, num_labels
     optim = Adam(learning_rate=5e-5)
     print("Training model....")
     model.compile(loss=loss_function, optimizer=optim, metrics=['accuracy'])
-    model.fit(tokens_train, Y_train_bin, verbose=1, epochs=epochs,
+    model.fit(tokens_train, Y_train_bin, verbose=1, epochs=0,
               batch_size=batch_size, validation_data=(tokens_dev, Y_dev_bin))
     print("Done!")
     return model
 
 
-def evaluate_model(lm, tokens_dev, Y_dev_bin, labels):
+def evaluate_model(lm, tokens_dev, Y_dev_bin, labels, figpath):
     print("Evaluating model....")
-    Y_pred = lm.predict(tokens_dev)["logits"]
+    pred = lm.predict(tokens_dev)["logits"]
     # Get predictions using the trained model
     # Finally, convert to numerical labels to get scores with sklearn
-    Y_pred = np.argmax(Y_pred, axis=1)
+    Y_pred = np.argmax(pred, axis=1)
     # If you have gold data, you can calculate accuracy
     Y_test = np.argmax(Y_dev_bin, axis=1)
 
-    report = classification_report(Y_test, Y_pred, labels=labels, digits=3)
+    report = classification_report(Y_test, Y_pred, target_names=labels, digits=3)
     print(report)
-    cm = confusion_matrix(Y_test, Y_pred, labels=labels)
+    cm = confusion_matrix(Y_test, Y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
     disp.plot()
-
+    plt.savefig(figpath)
 
 def main():
     args = create_arg_parser()
@@ -110,7 +112,9 @@ def main():
 
     model = train_model(lm, tokens_train, Y_train_bin, tokens_dev, Y_dev_bin, len(labels),
                         epochs=args.epochs, batch_size=args.batch_size)
-    evaluate_model(model, tokens_dev, Y_dev_bin, labels)
+    if not args.fig_path:
+        args.fig_path = args.model + "_confusion_matrix.png"
+    evaluate_model(model, tokens_dev, Y_dev_bin, labels,args.fig_path)
 
 
 if __name__ == "__main__":
