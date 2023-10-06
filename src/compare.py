@@ -5,13 +5,13 @@ from sklearn.metrics import classification_report, confusion_matrix, ConfusionMa
 from sklearn.preprocessing import LabelBinarizer
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.losses import CategoricalCrossentropy
-from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
+from transformers import TFAutoModelForSequenceClassification, AutoTokenizer, pipeline
 from pprint import pprint
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# import os
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 # Make reproducible as much as possible
 np.random.seed(1234)
 tf.random.set_seed(1234)
@@ -21,9 +21,12 @@ models_list = [
     'bert-base-uncased',
     'bert-large-uncased',
     'distilbert-base-uncased',
-    'roberta-base',
-    'typeform/distilbert-base-uncased-mnli',  # zero-shot
-    'facebook/bart-large-mnli',  # Zero-shot
+    'roberta-base'
+]
+
+zero_shot_models = [
+    'MoritzLaurer/deberta-v3-base-zeroshot-v1',  # zero-shot
+    'facebook/bart-large-mnli'  # Zero-shot
 ]
 
 
@@ -48,7 +51,7 @@ def create_arg_parser():
                         help="Separate dev set to read in (default dev.txt)")
     parser.add_argument("-t", "--test_file", type=str,
                         help="If added, use trained model to predict on test set")
-    parser.add_argument('--model', default='distilbert-base-uncased', choices=models_list + ['all'],
+    parser.add_argument('--model', default='distilbert-base-uncased', choices=models_list + zero_shot_models +['all'],
                         help="Which pre-trained model to use")
     parser.add_argument('--epochs', type=int, default=1, help='Epochs to fine-tune model for')
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size: best in powers of 2')
@@ -65,7 +68,7 @@ def train_model(lm, tokens_train, Y_train_bin, tokens_dev, Y_dev_bin, num_labels
     optim = Adam(learning_rate=5e-5)
     print("Training model....")
     model.compile(loss=loss_function, optimizer=optim, metrics=['accuracy'])
-    model.fit(tokens_train, Y_train_bin, verbose=1, epochs=0,
+    model.fit(tokens_train, Y_train_bin, verbose=1, epochs=epochs,
               batch_size=batch_size, validation_data=(tokens_dev, Y_dev_bin))
     print("Done!")
     return model
@@ -84,6 +87,17 @@ def evaluate_model(lm, tokens_dev, Y_dev_bin, labels, figpath):
     print(report)
     cm = confusion_matrix(Y_test, Y_pred)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+    disp.plot()
+    plt.savefig(figpath)
+
+def evaluate_zero_shot(model, tokens_dev, Y_test, labels, figpath):
+    output = model(tokens_dev, labels, multilabel=False)
+    Y_pred = [pred["labels"][0] for pred in output]
+
+    report = classification_report(Y_test, Y_pred, digits=3)
+    print(report)
+    cm = confusion_matrix(Y_test, Y_pred)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     disp.plot()
     plt.savefig(figpath)
 
@@ -110,11 +124,17 @@ def main():
     tokens_dev = tokenizer(X_dev, padding=True, max_length=100,
                            truncation=True, return_tensors="np").data
 
-    model = train_model(lm, tokens_train, Y_train_bin, tokens_dev, Y_dev_bin, len(labels),
-                        epochs=args.epochs, batch_size=args.batch_size)
     if not args.fig_path:
-        args.fig_path = args.model + "_confusion_matrix.png"
-    evaluate_model(model, tokens_dev, Y_dev_bin, labels,args.fig_path)
+        args.fig_path = f"{args.model}_confusion_matrix.png".replace('/', '')
+
+    if args.model in zero_shot_models:
+        model = pipeline('zero-shot-classification', model=args.model)
+        evaluate_zero_shot(model,X_dev,Y_dev, labels, args.fig_path)
+    else:
+        model = train_model(lm, tokens_train, Y_train_bin, tokens_dev, Y_dev_bin, len(labels),
+                            epochs=args.epochs, batch_size=args.batch_size)
+
+        evaluate_model(model, tokens_dev, Y_dev_bin, labels,args.fig_path)
 
 
 if __name__ == "__main__":
