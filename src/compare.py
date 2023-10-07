@@ -102,7 +102,7 @@ def evaluate_zero_shot(model, tokens_dev, Y_test, labels, figpath):
     plt.savefig(figpath)
 
 def main():
-    args = create_arg_parser()
+
     lm = args.model
 
     # Read in the data and embeddings
@@ -138,4 +138,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = create_arg_parser()
+    if args.model == 'all':
+        for model in models_list + zero_shot_models:
+            args.model = model
+            main()
+    else:
+        main()
