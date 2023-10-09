@@ -25,7 +25,6 @@ models_list = [
 ]
 
 zero_shot_models = [
-    'MoritzLaurer/deberta-v3-base-zeroshot-v1',  # zero-shot
     'facebook/bart-large-mnli'  # Zero-shot
 ]
 
@@ -56,7 +55,7 @@ def create_arg_parser():
     parser.add_argument('--epochs', type=int, default=1, help='Epochs to fine-tune model for')
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size: best in powers of 2')
     parser.add_argument('--fig_path', type=str, help='Save location for confusion matrix')
-
+    parser.add_argument('--learning_rate', type=float, default=0.00005, help='Learning rate for fine tuning')
     args = parser.parse_args()
     return args
 
@@ -140,8 +139,9 @@ def main():
 if __name__ == "__main__":
     args = create_arg_parser()
     if args.model == 'all':
-        for model in models_list + zero_shot_models:
-            args.model = model
+        for m in models_list + zero_shot_models:
+            args.model = m
+            args.fig_path = None
             main()
     else:
         main()
