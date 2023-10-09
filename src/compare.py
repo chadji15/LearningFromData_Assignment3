@@ -60,13 +60,13 @@ def create_arg_parser():
     return args
 
 
-def train_model(lm, tokens_train, Y_train_bin, num_labels, epochs=1, batch_size=8):
+def train_model(lm, tokens_train, Y_train_bin, num_labels, epochs=1, batch_size=8, learning_rate=5e-5):
     print("Loading model....")
     model = TFAutoModelForSequenceClassification.from_pretrained(lm, num_labels=num_labels)
-    loss_function = CategoricalCrossentropy(from_logits=True)
-    optim = Adam(learning_rate=5e-5)
+    #loss_function = CategoricalCrossentropy(from_logits=True)
+    optim = Adam(learning_rate=learning_rate)
     print("Training model....")
-    model.compile(loss=loss_function, optimizer=optim, metrics=['accuracy'])
+    model.compile( optimizer=optim, metrics=['accuracy'])
     model.fit(tokens_train, Y_train_bin, verbose=1, epochs=epochs,
               batch_size=batch_size)
     print("Done!")
@@ -131,7 +131,7 @@ def main():
         evaluate_zero_shot(model,X_dev,Y_dev, labels, args.fig_path)
     else:
         model = train_model(lm, tokens_train, Y_train_bin,  len(labels),
-                            epochs=args.epochs, batch_size=args.batch_size)
+                            epochs=args.epochs, batch_size=args.batch_size, learning_rate=args.learning_rate)
 
         evaluate_model(model, tokens_dev, Y_dev_bin, labels,args.fig_path)
 
