@@ -10,8 +10,7 @@ from pprint import pprint
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-# import os
-# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
 # Make reproducible as much as possible
 np.random.seed(1234)
 tf.random.set_seed(1234)
@@ -50,7 +49,7 @@ def create_arg_parser():
                         help="Separate dev set to read in (default dev.txt)")
     parser.add_argument("-t", "--test_file", type=str,
                         help="If added, use trained model to predict on test set")
-    parser.add_argument('--model', default='distilbert-base-uncased', choices=models_list + zero_shot_models +['all'],
+    parser.add_argument('--model', default='distilbert-base-uncased', choices=models_list + zero_shot_models + ['all'],
                         help="Which pre-trained model to use")
     parser.add_argument('--epochs', type=int, default=1, help='Epochs to fine-tune model for')
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size: best in powers of 2')
@@ -61,12 +60,31 @@ def create_arg_parser():
 
 
 def train_model(lm, tokens_train, Y_train_bin, num_labels, epochs=1, batch_size=8, learning_rate=5e-5):
+    '''
+    A function that fine-tunes the passed model to the downstream task. We use the categorical cross entropy loss and
+    the ADAM optimizer.
+    Parameters
+    ----------
+    lm: The model we will finetune. Can be a pipeline or an estimator
+    tokens_train: Tokenized reviews that will be used for training
+    Y_train_bin: The respective labels for the reviews, in a binary (one-hot) format
+    num_labels(int): The number of unique labels
+    epochs(int): Epochs to train the model for
+    batch_size(int): Batch size to use for training
+    learning_rate(floa): Learning rate to pass to the ADAM optimizer
+
+    Returns
+    -------
+
+    model: The passed lm after fine-tuning it
+
+    '''
     print("Loading model....")
     model = TFAutoModelForSequenceClassification.from_pretrained(lm, num_labels=num_labels)
-    #loss_function = CategoricalCrossentropy(from_logits=True)
+    loss_function = CategoricalCrossentropy(from_logits=True)
     optim = Adam(learning_rate=learning_rate)
     print("Training model....")
-    model.compile( optimizer=optim, metrics=['accuracy'])
+    model.compile(loss=loss_function, optimizer=optim, metrics=['accuracy'])
     model.fit(tokens_train, Y_train_bin, verbose=1, epochs=epochs,
               batch_size=batch_size)
     print("Done!")
@@ -74,6 +92,24 @@ def train_model(lm, tokens_train, Y_train_bin, num_labels, epochs=1, batch_size=
 
 
 def evaluate_model(lm, tokens_dev, Y_dev_bin, labels, figpath):
+    '''
+    A function to evaluate the model on the test set. Accuracy is calculated for each model, as well as precision,
+    recall and f1-scores for each class. A confusion matrix is saved at the specified path.
+
+    Parameters
+    ----------
+    lm: The model we will evaluate. Can be a pipeline or an estimator
+    tokens_dev: Tokenized reviews that will be used for evaluation
+    Y_dev_bin: The respective labels for the reviews, in a binary (one-hot) format
+    labels (list(int)): The unique labels
+    figpath(str): Path to which we will save the confusion matrix
+
+    Returns
+    -------
+
+    none
+
+    '''
     print("Evaluating model....")
     pred = lm.predict(tokens_dev)["logits"]
     # Get predictions using the trained model
@@ -89,7 +125,27 @@ def evaluate_model(lm, tokens_dev, Y_dev_bin, labels, figpath):
     disp.plot()
     plt.savefig(figpath)
 
+
 def evaluate_zero_shot(model, tokens_dev, Y_test, labels, figpath):
+    '''
+
+    A function to evaluate a zero-classifier on the test set. Accuracy is calculated for each model, as well as
+    precision, recall and f1-scores for each class. A confusion matrix is saved at the specified path.
+
+    Parameters
+    ----------
+    model: The model we will evaluate. Can be a pipeline or an estimator
+    tokens_dev: Tokenized reviews that will be used for evaluation
+    Y_test: The respective labels for the reviews (without binarization)
+    labels (list(int)): The unique labels
+    figpath(str): Path to which we will save the confusion matrix
+
+    Returns
+    -------
+
+    none
+
+    '''
     output = model(tokens_dev, labels, multilabel=False)
     Y_pred = [pred["labels"][0] for pred in output]
 
@@ -100,8 +156,8 @@ def evaluate_zero_shot(model, tokens_dev, Y_test, labels, figpath):
     disp.plot()
     plt.savefig(figpath)
 
-def main():
 
+def main():
     lm = args.model
 
     # Read in the data and embeddings
@@ -128,12 +184,12 @@ def main():
 
     if args.model in zero_shot_models:
         model = pipeline('zero-shot-classification', model=args.model)
-        evaluate_zero_shot(model,X_dev,Y_dev, labels, args.fig_path)
+        evaluate_zero_shot(model, X_dev, Y_dev, labels, args.fig_path)
     else:
-        model = train_model(lm, tokens_train, Y_train_bin,  len(labels),
+        model = train_model(lm, tokens_train, Y_train_bin, len(labels),
                             epochs=args.epochs, batch_size=args.batch_size, learning_rate=args.learning_rate)
 
-        evaluate_model(model, tokens_dev, Y_dev_bin, labels,args.fig_path)
+        evaluate_model(model, tokens_dev, Y_dev_bin, labels, args.fig_path)
 
 
 if __name__ == "__main__":
