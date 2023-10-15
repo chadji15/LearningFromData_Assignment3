@@ -38,7 +38,7 @@ def create_arg_parser():
                         help="Input file to learn from (default train.txt)")
     parser.add_argument("-d", "--dev_file", type=str, default='data/dev.txt',
                         help="Separate dev set to read in (default dev.txt)")
-    parser.add_argument("-t", "--test_file", type=str, default='data/test.txt',
+    parser.add_argument("-t", "--test_file", type=str,
                         help="If added, use trained model to predict on test set")
     args = parser.parse_args()
     return args
@@ -102,12 +102,10 @@ def main():
     print("Loading data...")
     X_train, Y_train = read_corpus(args.train_file)
     X_dev, Y_dev = read_corpus(args.dev_file)
-    X_test, Y_test = read_corpus(args.test_file)
 
     encoder = LabelBinarizer()
     Y_train_bin = encoder.fit_transform(Y_train)  # Use encoder.classes_ to find mapping back
     Y_dev_bin = encoder.fit_transform(Y_dev)
-    Y_test_bin = encoder.fit_transform(Y_test)
     labels = encoder.classes_
     
     param_grid = create_param_grid()
