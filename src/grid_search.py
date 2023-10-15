@@ -79,10 +79,10 @@ def evaluate_model(lm, tokens_dev, Y_dev_bin, labels):
 
     report = classification_report(Y_test, Y_pred, target_names=labels, digits=3)
     print(report)
-#    cm = confusion_matrix(Y_test, Y_pred)
-#    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-#    disp.plot()
-#    plt.savefig(figpath)
+    cm = confusion_matrix(Y_test, Y_pred)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+    disp.plot()
+    plt.savefig(figpath)
     return accuracy_score(Y_test, Y_pred)
 
 def create_param_grid():
@@ -111,7 +111,6 @@ def main():
     param_grid = create_param_grid()
 
     performances = []
-    models = []
     max_accuracy = 0
     for parameters in param_grid:
         tf.keras.backend.clear_session()
@@ -128,11 +127,12 @@ def main():
         acc = evaluate_model(model, tokens_dev, Y_dev_bin, labels)
         performances.append(acc)
         
+    # Writing results to txt file
     output_file = open('results.txt', 'w', encoding='utf-8')
     i = 0
-    for dic in param_grid:
-      dic['accuracy'] = performances[i]
-      json.dump(dic, output_file) 
+    for parameters in param_grid:
+      parameters['accuracy'] = performances[i]
+      json.dump(parameters, output_file) 
       output_file.write("\n")
       i += 1
     
