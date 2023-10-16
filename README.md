@@ -16,7 +16,18 @@ Now split the dataset into separate train, validation and test files by running 
 ```python
 python3 split_train_val_test.py
 ````
-## 1
+## Classification using LSTMs
+The files for this part exist in the `lstm` folder. 
+
+The notebook containing the code and the development process is names `lstm.ipynb`, along with pre-generated output.
+
+`lstm.py` contains the basic template file with the final LSTM model plugged into it, so it can easily be run if needed.
+
+Before you can do that you do need to run the following from the root folder:
+
+```shell
+pip install lstm/requirements.txt
+```
 
 ## 2
 
